@@ -1,0 +1,10 @@
+lingmo-pkgbuild (0.1.0) helium; urgency=medium
+
+  * 初始版本
+  * 支持从源码目录构建 deb 包
+  * 支持 native 和 quilt 格式
+  * 支持并行构建
+  * 支持签名选项
+  * 支持构建依赖检查
+
+ -- Lingmo OS Team <team@lingmo.org>  Wed, 19 Feb 2025 14:00:00 +0800 
