@@ -2,12 +2,25 @@ Source: lingmo-pkgbuild
 Section: devel
 Priority: optional
 Maintainer: Lingmo OS Team <team@lingmo.org>
-Build-Depends: debhelper-compat (= 13), cmake, gettext
+Build-Depends: debhelper-compat (= 13),
+               cmake,
+               gettext,
+               build-essential,
+               dpkg-dev
+Standards-Version: 4.6.0
+Homepage: https://lingmo.org
+Rules-Requires-Root: no
 
 Package: lingmo-pkgbuild
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dpkg-dev, build-essential, gettext
-Description: Lingmo OS 包构建工具
- 一个用于构建 Lingmo OS 软件包的工具。
+Depends: ${shlibs:Depends},
+         ${misc:Depends},
+         build-essential,
+         dpkg-dev,
+         gettext
+Description: Lingmo OS Package Build Tools
+ A collection of tools for building and managing Debian packages for Lingmo OS.
  .
- 支持从源码目录构建 deb 包，支持 native 和 quilt 格式。 
+ This package provides:
+  * lingmo-pkgbuild: A tool for building Debian packages
+  * lingmo-repotool: A tool for managing Debian package repositories 

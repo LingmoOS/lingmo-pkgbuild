@@ -1,6 +1,13 @@
 #!/usr/bin/make -f
+
 %:
-	dh $@
+	dh $@ --buildsystem=cmake
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release 
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=Release
+
+override_dh_auto_install:
+	dh_auto_install
+	# Install translations
+	mkdir -p debian/lingmo-pkgbuild/usr/share/locale
+	cp -r obj-*/po/* debian/lingmo-pkgbuild/usr/share/locale/ 

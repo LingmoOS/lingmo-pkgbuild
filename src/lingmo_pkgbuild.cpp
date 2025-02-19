@@ -156,7 +156,7 @@ bool LingmoPkgBuilder::createOrigTarball() const {
         
         return result;
     } catch (const std::exception& e) {
-        std::cerr << "创建源码包失败: " << e.what() << "\n";
+        std::cerr << "Failed to create orig tarball: " << e.what() << "\n";
         return false;
     }
 }
@@ -236,7 +236,7 @@ bool LingmoPkgBuilder::parseChangelogFile(const std::filesystem::path& changelog
             size_t end = line.find(')', start);
             if (end != std::string::npos) {
                 m_version = line.substr(start + 1, end - start - 1);
-                std::cout << "从 changelog 找到版本: " << m_version << "\n";
+                std::cout << "Found version from changelog: " << m_version << "\n";
                 return true;
             }
         }
@@ -271,26 +271,26 @@ bool LingmoPkgBuilder::parseControlFile(const std::filesystem::path& controlFile
         if (!line.empty() && !std::isspace(line[0])) {
             if (line.compare(0, 9, "Package: ") == 0) {
                 m_packageName = line.substr(9);
-                std::cout << "找到包名: " << m_packageName << "\n";
+                std::cout << "Found package name: " << m_packageName << "\n";
             }
             else if (line.compare(0, 9, "Version: ") == 0) {
                 // 只有在没有从 changelog 读取到版本号时才使用 control 文件中的版本
                 if (m_version.empty()) {
                     m_version = line.substr(9);
-                    std::cout << "从 control 文件找到版本: " << m_version << "\n";
+                    std::cout << "Found version from control file: " << m_version << "\n";
                 }
             }
             else if (line.compare(0, 14, "Architecture: ") == 0) {
                 m_architecture = line.substr(14);
-                std::cout << "找到架构: " << m_architecture << "\n";
+                std::cout << "Found architecture: " << m_architecture << "\n";
             }
             else if (line.compare(0, 12, "Maintainer: ") == 0) {
                 m_maintainer = line.substr(12);
-                std::cout << "找到维护者: " << m_maintainer << "\n";
+                std::cout << "Found maintainer: " << m_maintainer << "\n";
             }
             else if (line.compare(0, 13, "Description: ") == 0) {
                 m_description = line.substr(13);
-                std::cout << "找到描述: " << m_description << "\n";
+                std::cout << "Found description: " << m_description << "\n";
             }
             else if (line.compare(0, 8, "Source: ") == 0) {
                 foundSource = true;
@@ -308,12 +308,12 @@ bool LingmoPkgBuilder::parseControlFile(const std::filesystem::path& controlFile
         std::cerr << _("Warning: Version not found, using default version 0.1.0") << "\n";
         m_version = "0.1.0";
     } else {
-        std::cout << "使用版本号: " << m_version << "\n";
+        std::cout << "Using version: " << m_version << "\n";
     }
     if (m_architecture.empty()) {
         if (foundSource) {
             m_architecture = "all";
-            std::cout << "源码包使用默认架构: all\n";
+            std::cout << "Using default architecture 'all' for source package\n";
         } else {
             std::cerr << _("Error: Architecture not found") << "\n";
             isValid = false;
