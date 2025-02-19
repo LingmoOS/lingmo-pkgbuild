@@ -8,6 +8,3 @@ override_dh_auto_configure:
 
 override_dh_auto_install:
 	dh_auto_install
-	# Install translations (only copy .mo files)
-	mkdir -p debian/lingmo-pkgbuild/usr/share/locale
-	find obj-*/po -name "*.mo" -exec cp --parents {} debian/lingmo-pkgbuild/usr/share/locale/ \; 
