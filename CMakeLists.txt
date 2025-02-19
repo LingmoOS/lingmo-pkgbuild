@@ -36,18 +36,10 @@ if(HAVE_UNISTD_H)
     add_definitions(-DHAVE_UNISTD_H)
 endif()
 
-# 安装目标
-install(TARGETS lingmo-pkgbuild lingmo-repotool
-    RUNTIME DESTINATION bin
-)
-
-find_package(Gettext REQUIRED)
-
 # 添加翻译文件
 add_subdirectory(po)
 
-# 安装翻译文件
-install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/po/
-    DESTINATION share/locale
-    FILES_MATCHING PATTERN "*.mo"
+# 安装可执行文件
+install(TARGETS lingmo-pkgbuild lingmo-repotool
+    RUNTIME DESTINATION bin
 ) 
