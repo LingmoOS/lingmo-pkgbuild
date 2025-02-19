@@ -2,11 +2,11 @@ Source: lingmo-pkgbuild
 Section: devel
 Priority: optional
 Maintainer: Lingmo OS Team <team@lingmo.org>
-Build-Depends: debhelper-compat (= 13), cmake
+Build-Depends: debhelper-compat (= 13), cmake, gettext
 
 Package: lingmo-pkgbuild
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dpkg-dev, build-essential
+Depends: ${shlibs:Depends}, ${misc:Depends}, dpkg-dev, build-essential, gettext
 Description: Lingmo OS 包构建工具
  一个用于构建 Lingmo OS 软件包的工具。
  .

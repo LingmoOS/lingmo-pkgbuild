@@ -1,48 +1,32 @@
 #include "lingmo_pkgbuild.h"
 #include <iostream>
 #include <filesystem>
+#include <libintl.h>
+#include <locale.h>
+
+#define _(str) gettext(str)
 
 void printUsage(const char* programName) {
-    std::cout << "Lingmo OS 包构建工具\n\n"
-              << "用法:\n"
-              << "  lingmo-pkgbuild [选项] <目录>\n"
-              << "选项:\n"
-              << "  -h, --help     显示帮助信息\n"
-              << "  -o, --output   指定输出目录 (默认: pkg_out)\n"
-              << "  -b, --build-dir 指定构建目录 (默认: .build_deb_lingmo)\n"
-              << "  -j, --jobs     指定并行构建数量 (默认: 1)\n"
-              << "  --no-sign      不对包进行签名\n"
-              << "  -k, --key      指定签名密钥\n"
-              << "  --no-deps      跳过构建依赖检查\n"
-              << "  -c, --clean    在构建前后清理构建目录\n"
-              << "注意: 构建依赖检查需要 root 权限\n";
-}
-
-bool buildAllPackages(const std::filesystem::path& sourceDir, 
-                     const std::filesystem::path& outputDir) {
-    bool success = true;
-    
-    for (const auto& entry : std::filesystem::directory_iterator(sourceDir)) {
-        if (!entry.is_directory()) continue;
-        
-        auto debianDir = entry.path() / "debian";
-        if (!std::filesystem::exists(debianDir)) continue;
-        
-        std::cout << "正在构建 " << entry.path().filename() << "...\n";
-        
-        auto outputPath = outputDir / (entry.path().filename().string() + ".deb");
-        if (!LingmoPkgBuilder::buildFromDirectory(debianDir, outputPath.string())) {
-            std::cerr << "构建 " << entry.path().filename() << " 失败\n";
-            success = false;
-        } else {
-            std::cout << "成功构建 " << outputPath << "\n";
-        }
-    }
-    
-    return success;
+    std::cout << _("Lingmo OS Package Build Tool") << "\n\n"
+              << _("Usage:") << "\n"
+              << "  " << programName << " [" << _("options") << "] <" << _("directory") << ">\n"
+              << _("Options:") << "\n"
+              << "  -h, --help     " << _("Show this help message") << "\n"
+              << "  -o, --output   " << _("Specify output directory") << " (" << _("default") << ": pkg_out)\n"
+              << "  -b, --build-dir " << _("Specify build directory") << " (" << _("default") << ": .build_deb_lingmo)\n"
+              << "  -j, --jobs     " << _("Specify number of parallel builds") << " (" << _("default") << ": 1)\n"
+              << "  --no-sign      " << _("Do not sign the package") << "\n"
+              << "  -k, --key      " << _("Specify signing key") << "\n"
+              << "  --no-deps      " << _("Skip build dependency check") << "\n"
+              << "  -c, --clean    " << _("Clean build directory before and after build") << "\n"
+              << _("Note: Build dependency check requires root privileges") << "\n";
 }
 
 int main(int argc, char* argv[]) {
+    setlocale(LC_ALL, "");
+    bindtextdomain("lingmo-pkgbuild", "/usr/share/locale");
+    textdomain("lingmo-pkgbuild");
+
     try {
         if (argc < 2) {
             printUsage(argv[0]);
@@ -66,13 +50,13 @@ int main(int argc, char* argv[]) {
                 return 0;
             } else if (arg == "-o" || arg == "--output") {
                 if (++i >= argc) {
-                    std::cerr << "错误: 输出目录参数缺失\n";
+                    std::cerr << _("Error: Missing output directory argument") << "\n";
                     return 1;
                 }
                 outputDir = argv[i];
             } else if (arg == "-b" || arg == "--build-dir") {
                 if (++i >= argc) {
-                    std::cerr << "错误: 构建目录参数缺失\n";
+                    std::cerr << _("Error: Missing build directory argument") << "\n";
                     return 1;
                 }
                 buildDir = argv[i];
@@ -85,33 +69,33 @@ int main(int argc, char* argv[]) {
                 try {
                     threadCount = std::stoi(numStr);
                     if (threadCount < 1) {
-                        std::cerr << "错误: 并行构建数量必须大于0\n";
+                        std::cerr << _("Error: Number of parallel builds must be greater than 0") << "\n";
                         return 1;
                     }
                 } catch (const std::exception&) {
-                    std::cerr << "错误: 无效的并行构建数量\n";
+                    std::cerr << _("Error: Invalid number of parallel builds") << "\n";
                     return 1;
                 }
             } else if (arg == "--jobs") {
                 if (++i >= argc) {
-                    std::cerr << "错误: 并行构建数量参数缺失\n";
+                    std::cerr << _("Error: Missing parallel build count argument") << "\n";
                     return 1;
                 }
                 try {
                     threadCount = std::stoi(argv[i]);
                     if (threadCount < 1) {
-                        std::cerr << "错误: 并行构建数量必须大于0\n";
+                        std::cerr << _("Error: Number of parallel builds must be greater than 0") << "\n";
                         return 1;
                     }
                 } catch (const std::exception&) {
-                    std::cerr << "错误: 无效的并行构建数量\n";
+                    std::cerr << _("Error: Invalid number of parallel builds") << "\n";
                     return 1;
                 }
             } else if (arg == "--no-sign") {
                 sign = false;
             } else if (arg == "-k" || arg == "--key") {
                 if (++i >= argc) {
-                    std::cerr << "错误: 签名密钥参数缺失\n";
+                    std::cerr << _("Error: Missing signing key argument") << "\n";
                     return 1;
                 }
                 signKey = argv[i];
@@ -120,7 +104,7 @@ int main(int argc, char* argv[]) {
             } else if (arg == "-c" || arg == "--clean") {
                 clean = true;
             } else if (arg[0] == '-' && arg != "-j") {
-                std::cerr << "错误: 未知选项 " << arg << "\n";
+                std::cerr << _("Error: Unknown option") << " " << arg << "\n";
                 return 1;
             } else {
                 sourceDir = arg;
@@ -128,12 +112,12 @@ int main(int argc, char* argv[]) {
         }
 
         if (sourceDir.empty()) {
-            std::cerr << "错误: 请指定源目录\n";
+            std::cerr << _("Error: Please specify source directory") << "\n";
             return 1;
         }
 
         if (!std::filesystem::exists(sourceDir)) {
-            std::cerr << "错误: 源码目录不存在: " << sourceDir << "\n";
+            std::cerr << _("Error: Source directory does not exist") << ": " << sourceDir << "\n";
             return 1;
         }
 
@@ -153,7 +137,7 @@ int main(int argc, char* argv[]) {
 
         // 检查构建依赖
         if (checkDeps && !LingmoPkgBuilder::checkBuildDependencies(sourceDir)) {
-            std::cerr << "构建依赖检查失败\n";
+            std::cerr << _("Build dependency check failed") << "\n";
             return 1;
         }
 
@@ -162,20 +146,20 @@ int main(int argc, char* argv[]) {
         for (const auto& entry : std::filesystem::directory_iterator(sourceDir)) {
             if (!entry.is_directory()) continue;
 
-            std::cout << "正在构建 \"" << entry.path().filename().string() << "\"...\n";
+            std::cout << _("Building") << " \"" << entry.path().filename().string() << "\"...\n";
             if (!LingmoPkgBuilder::buildFromDirectory(entry.path(), outputDir.string())) {
-                std::cerr << "构建 \"" << entry.path().filename().string() << "\" 失败\n";
+                std::cerr << _("Failed to build") << " \"" << entry.path().filename().string() << "\"\n";
                 allSuccess = false;
             }
         }
 
         if (!allSuccess) {
-            std::cerr << "部分包构建失败\n";
+            std::cerr << _("Some packages failed to build") << "\n";
             return 1;
         }
 
-        std::cout << "所有包构建完成\n";
-        std::cout << "构建产物位于: " << std::filesystem::absolute(outputDir) << "\n";
+        std::cout << _("All packages built successfully") << "\n";
+        std::cout << _("Build artifacts are located at") << ": " << std::filesystem::absolute(outputDir) << "\n";
 
         // 如果指定了清理选项，构建完成后再次清理
         if (clean) {
@@ -185,7 +169,7 @@ int main(int argc, char* argv[]) {
         return 0;
 
     } catch (const std::exception& e) {
-        std::cerr << "错误: " << e.what() << "\n";
+        std::cerr << _("Error") << ": " << e.what() << "\n";
         return 1;
     }
 } 

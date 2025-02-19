@@ -2,9 +2,12 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
+#include <libintl.h>
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+
+#define _(str) gettext(str)
 
 // 添加静态成员初始化
 std::filesystem::path LingmoPkgBuilder::s_buildDir = ".build_deb_lingmo";
@@ -20,12 +23,11 @@ LingmoPkgBuilder::LingmoPkgBuilder(const std::filesystem::path& sourceDir, Packa
     {
         std::ifstream changelog(sourceDir / "debian/changelog");
         if (!changelog.is_open()) {
-            throw std::runtime_error("无法打开 changelog 文件");
+            throw std::runtime_error(_("Unable to open changelog file"));
         }
 
         std::string line;
         if (std::getline(changelog, line)) {
-            // changelog 的第一行格式: package (version) distribution; urgency=level
             size_t spacePos = line.find(' ');
             if (spacePos != std::string::npos) {
                 correctName = line.substr(0, spacePos);
@@ -34,40 +36,39 @@ LingmoPkgBuilder::LingmoPkgBuilder(const std::filesystem::path& sourceDir, Packa
     }
 
     if (correctName.empty()) {
-        throw std::runtime_error("无法从 changelog 获取包名");
+        throw std::runtime_error(_("Unable to get package name from changelog"));
     }
 
-    // 设置临时目录为 .build_deb_lingmo/正确的包名
     m_tempDir = s_buildDir / correctName;
     std::filesystem::create_directories(m_tempDir);
 
-    // 如果源目录不在构建目录中，需要复制
     if (sourceDir.parent_path() != s_buildDir) {
-        // 复制源码到构建目录
-        for (const auto& entry : std::filesystem::directory_iterator(sourceDir)) {
-            const auto& path = entry.path();
-            auto destPath = m_tempDir / entry.path().filename();
-            if (entry.is_directory()) {
-                std::filesystem::copy(path, destPath,
-                    std::filesystem::copy_options::recursive |
-                    std::filesystem::copy_options::overwrite_existing);
-            } else {
-                std::filesystem::copy(path, destPath,
-                    std::filesystem::copy_options::overwrite_existing);
+        try {
+            for (const auto& entry : std::filesystem::directory_iterator(sourceDir)) {
+                const auto& path = entry.path();
+                auto destPath = m_tempDir / entry.path().filename();
+                if (entry.is_directory()) {
+                    std::filesystem::copy(path, destPath,
+                        std::filesystem::copy_options::recursive |
+                        std::filesystem::copy_options::overwrite_existing);
+                } else {
+                    std::filesystem::copy(path, destPath,
+                        std::filesystem::copy_options::overwrite_existing);
+                }
             }
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string(_("Failed to copy source files")) + ": " + e.what());
         }
     }
 
-    // 从源目录的 debian 目录读取信息
     if (!parseChangelogFile(m_tempDir / "debian/changelog")) {
-        std::cerr << "警告: 无法从 changelog 获取版本号\n";
+        std::cerr << _("Warning: Unable to get version from changelog") << "\n";
     }
     
     if (!parseControlFile(m_tempDir / "debian/control")) {
-        throw std::runtime_error("无法解析 control 文件");
+        throw std::runtime_error(_("Failed to parse control file"));
     }
     
-    // 检查包类型
     auto formatFile = m_tempDir / "debian/source/format";
     if (std::filesystem::exists(formatFile)) {
         std::ifstream format(formatFile);
@@ -162,76 +163,68 @@ bool LingmoPkgBuilder::createOrigTarball() const {
 
 bool LingmoPkgBuilder::build(const std::filesystem::path& sourceDir) {
     try {
-        // 1. 复制源码到构建目录
         std::string cpCmd = "cp -r " + sourceDir.string() + "/* " + m_tempDir.string();
         if (!runCommand(cpCmd)) {
-            std::cerr << "Failed to copy source files\n";
+            std::cerr << _("Failed to copy source files") << "\n";
             return false;
         }
 
-        // 2. 如果是 quilt 格式，创建 orig tarball
         if (!isNativePackage()) {
-            // 获取上游版本号
             std::string upstreamVersion = m_version;
             size_t dashPos = m_version.find('-');
             if (dashPos != std::string::npos) {
                 upstreamVersion = m_version.substr(0, dashPos);
             }
 
-            // 创建 orig tarball，注意 tar 参数的顺序
             std::string tarCmd = "cd " + m_tempDir.parent_path().string() + " && "
                               + "tar --exclude=debian -Jcf " + m_packageName + "_" + upstreamVersion + ".orig.tar.xz "
                               + "-C " + m_packageName + " .";
 
             if (!runCommand(tarCmd)) {
-                std::cerr << "Failed to create orig tarball\n";
+                std::cerr << _("Failed to create orig tarball") << "\n";
                 return false;
             }
         }
 
-        // 3. 在源码目录下执行构建
-        std::string buildCmd = "cd " + m_tempDir.string() + " && dpkg-buildpackage -b";
+        std::string buildCmd = "cd " + m_tempDir.string() + " && dpkg-buildpackage";
         
-        // 添加并行构建参数
         if (s_threadCount > 1) {
             buildCmd += " -j" + std::to_string(s_threadCount);
         }
         
-        // 添加签名选项
         if (!s_signBuild) {
             buildCmd += " -us -uc --no-sign";
         } else if (!s_signKey.empty()) {
             buildCmd += " -k" + s_signKey;
         }
         
-        // 如果是非原生包，添加 -sa 选项
         if (!isNativePackage()) {
             buildCmd += " -sa";
         }
 
         if (!runCommand(buildCmd)) {
-            std::cerr << "Build command failed\n";
+            std::cerr << _("Build command failed") << "\n";
             return false;
         }
 
         if (!copyArtifacts(m_packageName)) {
-            std::cerr << "Failed to copy artifacts\n";
+            std::cerr << _("Failed to copy artifacts") << "\n";
             return false;
         }
         
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "构建失败: " << e.what() << "\n";
+        std::cerr << _("Build failed") << ": " << e.what() << "\n";
         return false;
     }
 }
 
 bool LingmoPkgBuilder::parseChangelogFile(const std::filesystem::path& changelogFile) {
-    std::cout << "正在解析 changelog 文件: " << changelogFile << "\n";
+    std::cout << _("Parsing changelog file") << ": " << changelogFile << "\n";
     
     std::ifstream file(changelogFile);
     if (!file.is_open()) {
-        std::cerr << "无法打开 changelog 文件\n";
+        std::cerr << _("Unable to open changelog file") << "\n";
         return false;
     }
 
@@ -253,11 +246,11 @@ bool LingmoPkgBuilder::parseChangelogFile(const std::filesystem::path& changelog
 }
 
 bool LingmoPkgBuilder::parseControlFile(const std::filesystem::path& controlFile) {
-    std::cout << "正在解析 control 文件: " << controlFile << "\n";
+    std::cout << _("Parsing control file") << ": " << controlFile << "\n";
     
     std::ifstream file(controlFile);
     if (!file.is_open()) {
-        std::cerr << "无法打开 control 文件\n";
+        std::cerr << _("Unable to open control file") << "\n";
         return false;
     }
 
@@ -308,11 +301,11 @@ bool LingmoPkgBuilder::parseControlFile(const std::filesystem::path& controlFile
     // 验证必要字段
     bool isValid = true;
     if (m_packageName.empty()) {
-        std::cerr << "错误: 未找到包名\n";
+        std::cerr << _("Error: Package name not found") << "\n";
         isValid = false;
     }
     if (m_version.empty()) {
-        std::cerr << "警告: 未找到版本号，将使用默认版本 0.1.0\n";
+        std::cerr << _("Warning: Version not found, using default version 0.1.0") << "\n";
         m_version = "0.1.0";
     } else {
         std::cout << "使用版本号: " << m_version << "\n";
@@ -322,17 +315,17 @@ bool LingmoPkgBuilder::parseControlFile(const std::filesystem::path& controlFile
             m_architecture = "all";
             std::cout << "源码包使用默认架构: all\n";
         } else {
-            std::cerr << "错误: 未找到架构\n";
+            std::cerr << _("Error: Architecture not found") << "\n";
             isValid = false;
         }
     }
 
     if (!isValid) {
-        std::cerr << "control 文件验证失败\n";
+        std::cerr << _("Control file validation failed") << "\n";
         return false;
     }
 
-    std::cout << "control 文件解析成功\n";
+    std::cout << _("Control file parsed successfully") << "\n";
     return true;
 }
 
@@ -343,7 +336,7 @@ bool LingmoPkgBuilder::copyDebianFiles(const std::filesystem::path& debianDir) {
             std::filesystem::copy_options::recursive);
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "复制文件失败: " << e.what() << "\n";
+        std::cerr << _("Copy file failed") << ": " << e.what() << "\n";
         return false;
     }
 }
@@ -355,7 +348,7 @@ bool LingmoPkgBuilder::buildFromDirectory(const std::filesystem::path& sourceDir
         LingmoPkgBuilder builder(sourceDir);
         return builder.build(sourceDir);
     } catch (const std::exception& e) {
-        std::cerr << "构建失败: " << e.what() << "\n";
+        std::cerr << _("Build failed") << ": " << e.what() << "\n";
         return false;
     }
 }
@@ -373,7 +366,7 @@ bool LingmoPkgBuilder::copyArtifacts(const std::string& packageName) const {
         }
         return true;
     } catch (const std::exception& e) {
-        std::cerr << "复制产物失败: " << e.what() << "\n";
+        std::cerr << _("Copy artifacts failed") << ": " << e.what() << "\n";
         return false;
     }
 }
@@ -385,19 +378,17 @@ bool LingmoPkgBuilder::runCommand(const std::string& cmd) {
 
 bool LingmoPkgBuilder::checkBuildDependencies(const std::filesystem::path& sourceDir) {
 #ifdef HAVE_UNISTD_H
-    // 检查是否以root权限运行
     if (geteuid() != 0) {
-        std::cerr << "错误: 检查构建依赖需要 root 权限\n"
-                  << "请使用 sudo 运行此命令\n";
+        std::cerr << _("Error: Build dependency check requires root privileges") << "\n"
+                  << _("Please run with sudo") << "\n";
         return false;
     }
 #endif
 
-    std::cout << "正在检查构建依赖...\n";
+    std::cout << _("Checking build dependencies...") << "\n";
     
-    // 先更新包列表
     if (!runCommand("apt-get update")) {
-        std::cerr << "错误: 更新包列表失败\n";
+        std::cerr << _("Error: Failed to update package list") << "\n";
         return false;
     }
 
@@ -407,16 +398,16 @@ bool LingmoPkgBuilder::checkBuildDependencies(const std::filesystem::path& sourc
         auto debianDir = entry.path() / "debian";
         if (!std::filesystem::exists(debianDir)) continue;
 
-        std::cout << "检查 " << entry.path().filename() << " 的构建依赖...\n";
+        std::cout << _("Checking dependencies for") << " " << entry.path().filename() << "...\n";
         
-        // 使用 apt build-dep 安装依赖，添加 "./" 前缀
         std::string cmd = "apt build-dep -y ./" + entry.path().string();
         if (!runCommand(cmd)) {
-            std::cerr << "错误: " << entry.path().filename() << " 的构建依赖安装失败\n";
+            std::cerr << _("Error: Failed to install build dependencies for") << " " 
+                     << entry.path().filename() << "\n";
             return false;
         }
     }
 
-    std::cout << "所有构建依赖检查完成\n";
+    std::cout << _("All build dependencies checked") << "\n";
     return true;
 } 
